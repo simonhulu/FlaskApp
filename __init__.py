@@ -10,6 +10,6 @@ def hello():
 	return res
 @app.route("/test")
 def test():
-
+	return render_template('Test.html')
 if __name__ == "__main__":
     app.run(debug=True)
