@@ -14,48 +14,226 @@
     <!-- 最新的 Bootstrap 核心 JavaScript 文件 -->
     <script src="//cdn.bootcss.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
         <!-- Custom styles for this template -->
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='starter-template.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='main.css') }}">
+    <script type="text/javascript" src="{{ url_for('static', filename='jquery.pBar.min.js') }}"></script>
     <title>shijie's downloader</title>
 </head>
 <body>
 <div class="container">
     <div>
         <div>
-            <ul class="list-group">
-                <li class="list-group-item">Cras justo odio</li>
-                <li class="list-group-item">Dapibus ac facilisis in</li>
-                <li class="list-group-item">Morbi leo risus</li>
-                <li class="list-group-item">Porta ac consectetur ac</li>
-                <li class="list-group-item">Vestibulum at eros</li>
+        <nav class="navbar navbar-default" role="navigation">
+           <div class="nav navbar-nav navbar-right" style="margin-right: 0px;height:100%">
+                <BUTTON id="addTaskBtn">Add</BUTTON>
+            </div>
+        </nav>
+            <ul class="list-group taskGroup">
+               
             </ul>
-            <nav class="navbar navbar-default" role="navigation">
-   <div class="navbar-header">
-      <a class="navbar-brand" href="#">W3Cschool</a>
-   </div>
-   <div>
-      <ul class="nav navbar-nav">
-         <li class="active"><a href="#">iOS</a></li>
-         <li><a href="#">SVN</a></li>
-         <li class="dropdown">
-            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-               Java 
-               <b class="caret"></b>
-            </a>
-            <ul class="dropdown-menu">
-               <li><a href="#">jmeter</a></li>
-               <li><a href="#">EJB</a></li>
-               <li><a href="#">Jasper Report</a></li>
-               <li class="divider"></li>
-               <li><a href="#">分离的链接</a></li>
-               <li class="divider"></li>
-               <li><a href="#">另一个分离的链接</a></li>
-            </ul>
-         </li>
-      </ul>
-   </div>
-</nav>
         </div>
     <div>
 </div>
+<!-- Modal -->
+<div class="modal fade" id="myModal" role="dialog">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">添加新任务</h4>
+        </div>
+        <div class="modal-body">
+          <input type="text" id="downloadurl" class="form-control" placeholder="输入下载地址" aria-describedby="basic-addon2">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="startDownloadBtn">开始下载</button>
+        </div>
+      </div>
+    </div>
+</div>
+<!-- -->
 </body>
+<script type="text/javascript">
+
+function guid() {
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+      .toString(16)
+      .substring(1);
+  }
+  return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+    s4() + '-' + s4() + s4() + s4();
+}
+
+var ARIA2METHOD = {
+    START:'aria2.onDownloadStart',
+    COMPLETE:'aria2.onDownloadComplete',
+    ERROR:'aria2.onDownloadError'
+};
+var ARIA2STATUS = {
+  CREATE:'create',
+  ACTIVE: 'active',
+  WAITING: 'waiting',
+  PAUSED: 'paused',
+  ERROR: 'error',
+  COMPLETE: 'complete',
+  REMOVED: 'removed'
+};
+ var wsServer = 'ws://1cl4951726.iask.in:6800/jsonrpc'; 
+ var websocket = undefined; 
+
+function freststatus()
+{
+    var command = {} ;
+    command['jsonrpc'] = '2.0' ;
+    command['method'] = 'aria2.tellStatus' ;
+    command['id']='tellstatus';  
+    var gids = [];
+    for (var index in tasks) {
+        var task = tasks[index];
+        if(task.status == ARIA2STATUS.ACTIVE || task.status == ARIA2STATUS.waiting || task.status == ARIA2STATUS.PAUSED)
+        {
+                  gids.push(task.gid);
+        }
+
+    }
+    if (gids.length > 0) {
+      command['params'] = gids;
+      websocket.send(JSON.stringify(command),function(result){    
+      }); 
+    }
+}
+
+function Task()
+{
+    this.id = undefined;
+    this.gid = undefined;
+    this.status = undefined;
+}
+var task = new Task();
+var tasks = [];
+function onOpen(evt) { 
+  console.log("Connected to WebSocket server."); 
+  setInterval(freststatus,1000);
+ } 
+ function onClose(evt) { 
+ console.log("Disconnected"); 
+ connect();
+ } 
+
+
+ function addTask(task)
+ {
+        tasks.push(task);
+         $('.taskGroup').append("<li class='list-group-item' id='"+task.id+"'><span>name</span><div class='pull-right'><div class='progress col-sm-9'><div class='progress-bar progress-bar-success progress-bar-striped active'  role='progressbar' aria-valuenow='40' aria-valuemin='0' aria-valuemax='100' style='width:10%'>40% Complete (success)</div></div><span class='downloadPercent'></span><span class='downloadSpeedLabel'></span><BUTTON>暂停</BUTTON><BUTTON>删除</BUTTON></div></li>");
+
+ }
+
+ function onMessage(evt) { 
+    var result = JSON.parse(evt.data);
+    if (result.id == "tellstatus") {
+        var gid  = result.result.gid;
+        var completedLength = result.result.completedLength ;
+        var downloadSpeed = result.result.downloadSpeed ;
+        var totalLength = result.result.totalLength ;
+        for (var j = 0; j < tasks.length; j++) {
+          var task = tasks[j];
+          if (task.gid == gid) {
+            $("#"+task.id+" .downloadSpeedLabel").text((Math.round(downloadSpeed/8/1024*100)/100+"kB/s")); 
+            $("#"+task.id+" .downloadPercent").text((Math.round(completedLength/totalLength*100)/100+"%")); 
+          }
+        }
+      return ;
+    }
+
+    if (result.method == ARIA2METHOD.START) {
+        var gids = result.params;
+        for (var i = 0 ; i < gids.length; i++) {
+              var gid = gids[i].gid;
+              for (var j = 0; j < tasks.length; j++) {
+                  var task = tasks[j];
+                  if (task.gid == gid) {
+                    task.status =  ARIA2STATUS.START ;
+                  }
+              }
+        }
+        console.log(tasks);
+        
+    }else if(result.method == ARIA2METHOD.COMPLETE)
+    {
+        var gids = result.params;
+        for (var i = 0 ; i < gids.length; i++) {
+              var gid = gids[i].gid;
+              for (var j = 0; j < tasks.length; j++) {
+                  var task = tasks[j];
+                  if (task.gid == gid) {
+                    task.status =  ARIA2STATUS.COMPLETE ;
+                    console.log(task.gid+" complete");
+                  }
+              }
+        }
+
+    }else if(result.method == undefined){
+       if (result.id != undefined && result.result!=undefined) {
+            var id = result.id;
+            var gid = result.result;
+            for (var i = 0; i < tasks.length; i++) {
+              var task = tasks[i];
+              if (task.id == id) {
+                task.gid = gid ;
+              }
+            }
+       }
+ 
+    }
+ } 
+ function onError(evt) { 
+    console.log('Error occured: ' + evt.data); 
+ }
+
+ function connect()
+ {
+    websocket = new WebSocket(wsServer)
+    websocket.onopen = function (evt) { onOpen(evt) }; 
+    websocket.onclose = function (evt) {onClose(evt) }; 
+    websocket.onmessage = function (evt) {onMessage(evt) }; 
+    websocket.onerror = function (evt) {onError(evt)  };
+ }
+ connect();
+
+$('#startDownloadBtn').click(function(){
+    var uuid =  guid();
+    var command = {} ;
+    command['jsonrpc'] = '2.0';
+    command['id']= uuid;
+    command['method'] = 'aria2.addUri';
+    command['params'] = [[$('#downloadurl').val()]];
+    websocket.send(JSON.stringify(command),function(result){ 
+    });
+    var flag = false ; 
+    if (tasks.length >0) {
+     for (var index in tasks) {
+        var task = tasks[index];
+         if(task.id == uuid)
+         {
+            flag = true ;
+            task.status = ARIA2STATUS.CREATE ;
+         }
+     }
+    }
+    if (!flag) {
+        var task = new Task();
+        task.id = uuid ;
+        task.status =  ARIA2STATUS.CREATE;
+        addTask(task);
+    }
+    $('#myModal').modal('hide'); 
+})
+
+
+$('#addTaskBtn').click(function(){
+    $('#myModal').modal('show'); 
+});
+
+
+</script>
 </html>
